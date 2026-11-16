@@ -232,10 +232,10 @@ void thread_sleep(struct thread *t) {
 }
 
 void thread_wakeup(struct thread *t) {
-  ASSERT(t->status == THREAD_BLOCKED);
   int64_t timer_then = t->timer_then;
   int64_t timer_ticks = t->timer_ticks;
   int status = t->status;
+  ASSERT(status == THREAD_BLOCKED);
   if (timer_elapsed(timer_then) >= timer_ticks) {
     list_remove(&t->timer_elem);
     thread_unblock(t);
