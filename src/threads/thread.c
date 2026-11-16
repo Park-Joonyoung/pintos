@@ -28,6 +28,8 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -92,6 +94,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+
+  list_init(&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -218,6 +222,34 @@ thread_block (void)
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
+}
+
+void thread_sleep(struct thread *t) {
+  ASSERT (intr_get_level () == INTR_OFF);
+  ASSERT (thread_current() == t);
+  list_push_back(&sleep_list, &t->timer_elem);
+  thread_block();
+}
+
+void thread_wakeup(struct thread *t) {
+  ASSERT(t->status == THREAD_BLOCKED);
+  int64_t timer_then = t->timer_then;
+  int64_t timer_ticks = t->timer_ticks;
+  int status = t->status;
+  if (timer_elapsed(timer_then) >= timer_ticks) {
+    list_remove(&t->timer_elem);
+    thread_unblock(t);
+  }
+}
+
+void thread_wakeup_all(void) {
+    ASSERT(intr_get_level() == INTR_OFF);
+    struct thread *t;
+    struct list_elem *e;
+    for (e = list_begin(&sleep_list); e != list_end(&sleep_list); e = list_next(e)) {
+      t = list_entry (e, struct thread, timer_elem);
+      thread_wakeup(t);
+    }
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
